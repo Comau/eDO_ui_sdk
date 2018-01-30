@@ -1,0 +1,9 @@
+{
+  "dependencies": {},
+  "description": "TypeScript definitions for e.DO UI Plugins",
+  "devDependencies": {},
+  "license": "BSD",
+  "name": "edo-ui-sdk",
+  "scripts": {},
+  "version": "0.0.1"
+}
