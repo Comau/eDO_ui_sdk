@@ -88,6 +88,7 @@ export declare class RosService {
 	joints: Array<number>;
 	readonly jointsChangeEvent: Subject<number[]>;
 	jointsLastUpdate: Date;
+	jointsTarget: Array<number>;
 	cartesianPosition: any;
 	readonly cartesianPositionChangeEvent: Subject<any>;
 	cartesianPositionLastUpdate: Date;
@@ -97,6 +98,7 @@ export declare class RosService {
 	private serviceSwVersion;
 	private serviceSystemCommand;
 	private topicJntState;
+	private topicJntTargetState;
 	private topicCartesianPose;
 	private topicMoveAck;
 	private topicMachineState;
@@ -141,6 +143,6 @@ export declare class RosService {
 export declare class EDOModule {
 	static forRoot(): ModuleWithProviders;
 }
-export declare function EDOShowInMenu(label: string, icon: string ): ClassDecorator;
+export declare function EDOShowInMenu(label: string, icon: string): ClassDecorator;
 
 export as namespace edosdk;
