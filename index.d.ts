@@ -1,8 +1,41 @@
 import { Location, LocationChangeEvent, LocationChangeListener, LocationStrategy, PopStateEvent } from '@angular/common';
-import { ChangeDetectorRef, ClassProvider, Compiler, ComponentFactory, ComponentFactoryResolver, ComponentRef, ElementRef, EmbeddedViewRef, ErrorHandler, EventEmitter, ExistingProvider, FactoryProvider, InjectionToken, Injector, ModuleWithComponentFactories, ModuleWithProviders, NgModuleFactory, NgModuleInjector, NgModuleRef, NgModule, NgZone, OnInit, OpaqueToken, Provider, RenderDebugInfo, Renderer, TemplateRef, Type, TypeProvider, ValueProvider, ViewContainerRef, ViewRef } from '@angular/core';
+import { ChangeDetectorRef, ClassProvider, Compiler, ComponentFactory, ComponentFactoryResolver, ComponentRef, Directive, ElementRef, EmbeddedViewRef, ErrorHandler, EventEmitter, ExistingProvider, FactoryProvider, InjectionToken, Injector, ModuleWithComponentFactories, ModuleWithProviders, NgModuleFactory, NgModuleInjector, NgModuleRef, NgModule, NgZone, OnInit, OpaqueToken, Provider, RenderDebugInfo, Renderer, TemplateRef, Type, TypeProvider, ValueProvider, ViewContainerRef, ViewRef } from '@angular/core';
+import { Storage, StorageConfig } from '@ionic/storage';
 import { Animation, AnimationOptions, App, BlockerDelegate, BlockerOptions, ClickBlock, Config, Content, DeepLinkConfig, DeepLinkMetadata, DeepLinker, DocumentDirection, DomCallback, DomController, DomDebouncer, EventListenerOptions, Footer, GestureController, GestureDelegate, GestureOptions, Header, Ion, IonicApp, IonicPageMetadata, Keyboard, LoadedModule, Menu, MenuController, MenuType, ModuleLoader, NavController, NavControllerBase, NavLink, NavOptions, NavParams, NavResult, NavSegment, Navbar, NgModuleLoader, OverlayPortal, Page, PanGesture, PanGestureConfig, Platform, PlatformConfig, PlatformVersion, PlayOptions, Side, SlideData, SlideEdgeGesture, SlideGesture, SwipeBackGesture, Tab, Tabs, Toast, ToastController, ToastOptions, Transition, TransitionController, TransitionInstruction, UrlSerializer, ViewController } from 'ionic-angular';
 import { Action, AnonymousSubscription, CompletionObserver, DispatchArg, ErrorObservable, ErrorObserver, IScheduler, ISubscription, IfObservable, NextObserver, Observable, Observer, Operator, PartialObserver, Scheduler, Subject, Subscribable, SubscribableOrPromise, Subscriber, Subscription, TeardownLogic } from 'rxjs';
 
+/**
+ * Tool type definition
+ */
+export declare type Tool = {
+	name: string;
+	id: string;
+	frame: Frame;
+};
+declare class ToolsService {
+	storage: Storage;
+	constructor(storage: Storage);
+	/**
+	 * Load (async) a Tool saved in the underlying storage
+	 */
+	loadTool(id: string): Promise<Tool>;
+	/**
+	 * Load (async) all Tool saved in the underlying storage
+	 */
+	load(): Promise<Tool[]>;
+	/**
+	 * Save (async) a Tool to the underlying storage
+	 */
+	save(tool: Tool): Promise<Tool>;
+	/**
+	 * Delete (async) a Tool from the underlying storage
+	 */
+	delete(tool: Tool): Promise<any>;
+	/**
+	 * Sort Tools
+	 */
+	reorder(from: any, to: any): Promise<any>;
+}
 declare enum CurrentState {
 	DISCONNECTED = -2,
 	UNKNOWN = -1,
@@ -16,16 +49,65 @@ declare enum CurrentState {
 	INIT_DISCOVER = 254,
 	COMMAND = 255,
 }
+export declare type CartesianPose = {
+	x: number;
+	y: number;
+	z: number;
+	a: number;
+	e: number;
+	r: number;
+	config_flags: string;
+};
+export declare type Point = {
+	data_type: DestinationType;
+	cartesian_data: CartesianPose;
+	joints_mask: number;
+	joints_data: number[];
+};
+export declare type Frame = {
+	x: number;
+	y: number;
+	z: number;
+	a: number;
+	e: number;
+	r: number;
+};
 export declare type MachineState = {
 	current_state: CurrentState;
 	opcode: number;
 };
 export declare type MovementCommand = {
-	movement_type: MoveType;
-	size: number;
-	data: Array<number>;
-	movement_attributes: number[];
+	move_command: MoveCommand;
+	move_type: MoveType;
 	ovr: number;
+	delay: number;
+	cartesian_linear_speed: number;
+	target: Point;
+	via: Point;
+	tool: Frame | string;
+	frame: Frame;
+	remote_tool: number;
+};
+export declare type JointControl = {
+	position: number;
+	velocity: number;
+	current: number;
+	ff_velocity: number;
+	ff_current: number;
+};
+export declare type JointControlArray = {
+	size: number;
+	joints: JointControl[];
+};
+export declare type JointState = {
+	position: number;
+	velocity: number;
+	current: number;
+	commandFlag: number;
+};
+export declare type JointStateArray = {
+	joints_mask: number;
+	joints: JointState[];
 };
 export declare type SystemCommand = {
 	command: SystemCommandType;
@@ -42,15 +124,21 @@ export declare type NodeSwVersionArray = {
  * Movement type supported
  */
 export declare enum MoveType {
-	MOVE_TRJNT_J = 0,
-	MOVE_TRJNT_C = 1,
-	MOVE_CARLIN_J = 10,
-	MOVE_CARLIN_C = 11,
-	MOVE_CARCIR_J = 20,
-	MOVE_CARCIR_C = 21,
-	MOVE_PAUSE = 6,
-	MOVE_RESUME = 7,
-	MOVE_CANCEL = 8,
+	JOINT = 74,
+	LINEAR = 76,
+	CIRCULAR = 67,
+}
+export declare enum MoveCommand {
+	EXE_JOGMOVE = 74,
+	EXE_MOVE = 77,
+	PAUSE = 80,
+	RESUME = 82,
+	CANCEL_MOVE = 67,
+}
+export declare enum DestinationType {
+	JOINT = 74,
+	POSITION = 80,
+	XTNDPOS = 88,
 }
 /**
  * System commands & responses type
@@ -81,15 +169,16 @@ export declare enum MessageFeedback {
  */
 export declare class RosService {
 	private toastCtrl;
+	private toolsService;
 	readonly machineStateChangeEvent: Subject<MachineState>;
 	running: boolean;
 	paused: boolean;
 	machineState: MachineState;
-	joints: Array<number>;
-	readonly jointsChangeEvent: Subject<number[]>;
+	joints: JointStateArray;
+	readonly jointsChangeEvent: Subject<JointStateArray>;
 	jointsLastUpdate: Date;
-	jointsTarget: Array<number>;
-	cartesianPosition: any;
+	jointsTarget: JointControlArray;
+	cartesianPosition: CartesianPose;
 	readonly cartesianPositionChangeEvent: Subject<any>;
 	cartesianPositionLastUpdate: Date;
 	readonly setJointIdStatusEvent: Subject<SystemCommand>;
@@ -116,7 +205,7 @@ export declare class RosService {
 	private waitingReceiveQueue;
 	private waitingExecutedQueue;
 	private connectTimeoutTimer;
-	constructor(toastCtrl: ToastController);
+	constructor(toastCtrl: ToastController, toolsService: ToolsService);
 	connectTo(url: string, port: string): void;
 	connect(): void;
 	disconnect(): void;
@@ -126,8 +215,9 @@ export declare class RosService {
 	readonly waitingExecutedQueueLength: number;
 	sendCalibrateCommand(joint: number): Promise<void>;
 	sendResetCommand(): Promise<void>;
-	sendInitCommand(joint: number): Promise<void>;
-	sendJogCommand(moveType: MoveType, joints: Array<number>): Promise<void>;
+	sendInitCommand(joints_mask: number): Promise<void>;
+	sendJogCommand(moveType: MoveType, target: Point, tool?: string): Promise<void>;
+	private checkMoveCommand(command);
 	private sendMoveCommand(command);
 	sendSetJointId(joint: number): void;
 	sendSystemCommand(command: SystemCommand): Promise<string>;
@@ -137,12 +227,34 @@ export declare class RosService {
 	clearQueue(): Promise<number>;
 	getSwVersion(): Promise<NodeSwVersionArray>;
 	sendControlSwitch(value: boolean): Promise<void>;
-	convertFlagsToMovementAttribute(delay: number, flags: string): Array<number>;
 }
-@NgModule()
+@NgModule({declarations: [
+    HoldDirective
+  ],
+  imports: [
+  ],
+  exports: [
+    HoldDirective
+  ]})
 export declare class EDOModule {
 	static forRoot(): ModuleWithProviders;
 }
 export declare function EDOShowInMenu(label: string, icon: string): ClassDecorator;
+/**
+ * Directive that fire an event every 30 ms while holding a button
+ */
+@Directive({ selector: '[hold]', exportAs:'holdRef'  })
+export declare class HoldDirective {
+	private el;
+	holding: EventEmitter<number>;
+	holdingStart: EventEmitter<number>;
+	holdingCancel: EventEmitter<number>;
+	private value;
+	private lastTimeStamp;
+	private onAnimationFrame;
+	constructor(el: ElementRef);
+	onHoldStart(event: Event): void;
+	onHoldEnd(event: Event): void;
+}
 
 export as namespace edosdk;
